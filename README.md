@@ -1,31 +1,47 @@
-Fast_NN_Search
+# 🚀 Fast_NN_Search
 
-A project to implement, visualize, and compare k-d trees and quadtrees for efficient storage and retrieval of point coordinates.
+A project to **implement**, **visualize**, and **compare** k-d trees and quadtrees for efficient storage and retrieval of point coordinates.
 
-Overview
+---
 
-This repository contains the implementation of two spatial data structures: the k-d tree and the quadtree. The primary goal is to efficiently store 2D point coordinates to perform fast Nearest Neighbor (NN) searches.
+## 📌 Overview
 
-We provide a user interface (UI) to visualize these data structures and their operations. The project also includes a comparative analysis of their time complexities for operations like insertion and searching, aiming to determine the optimal structure for different scenarios.
+This repository contains implementations of two spatial data structures:
 
-🌲 Features
+- **k-d Tree** — a binary space partitioning structure optimized for k-dimensional searching (here, 2D)
+- **Quadtree** — a hierarchical spatial index that recursively subdivides the plane into four quadrants
 
-K-D Tree: Implementation of a k-dimensional tree (specialized for 2D).
+The goal is to efficiently store 2D point coordinates and perform **fast Nearest Neighbor (NN) searches**.
 
-Quadtree: Implementation of a quadtree for spatial indexing.
+A **user interface (UI)** is provided to visualize how these structures partition space and handle queries. Benchmarking tools compare insertion, searching, and deletion time complexities to determine which structure performs best in different scenarios.
 
-User Interface: A visual tool to interact with and understand how both data structures partition the 2D space.
+---
 
-Performance Analysis: Code and analysis to compare the time complexities of both structures for key operations.
+## 🌲 Features
 
-🎯 Project Goal
+✅ **K-D Tree** implementation (2D-specific)  
+✅ **Quadtree** implementation for spatial indexing  
+✅ **Interactive UI** to visualize partitioning, insertion, and queries  
+✅ **Performance analysis** (theoretical + empirical)  
+✅ **Nearest Neighbor search comparison**  
+✅ Clean, modular code structure  
 
-The main objective of this project is to:
+---
 
-Implement k-d trees and quadtrees from scratch.
+## 🎯 Project Goals
 
-Develop a UI that helps visualize their construction and search processes.
+This project aims to:
 
-Benchmark the performance (especially time complexity) of both data structures for insertion, deletion, and nearest neighbor search.
+- Implement k-d trees and quadtrees **from scratch**  
+- Create a UI to help visualize construction and search  
+- Benchmark performance for:
+  - Insertion  
+  - Searching  
+  - Nearest Neighbor queries  
+  - Deletion (if implemented)  
+- Determine which structure performs best under:
+  - Varying data distribution  
+  - Point density  
+  - Query patterns  
 
-Conclude which structure is "best" based on empirical data and theoretical analysis, considering factors like data distribution and density.
+---
