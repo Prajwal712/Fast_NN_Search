@@ -1,0 +1,17 @@
+#ifndef KD_TREE_H
+#define KD_TREE_H
+
+#include <bits/stdc++.h>
+using namespace std;
+
+struct KDNode{
+    vector<double> point;
+    KDNode * left;
+    KDNode * right;
+
+    KDNode(const vector<double>&pt) : point(pt) , left(nullptr) , right(nullptr){}
+};
+
+KDNode* insert(KDNode* root , vector<double> point , int depth = 0);
+
+#endif
