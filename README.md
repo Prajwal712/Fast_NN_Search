@@ -1,4 +1,4 @@
-##Fast_NN_Search
+Fast_NN_Search
 
 A project to implement, visualize, and compare k-d trees and quadtrees for efficient storage and retrieval of point coordinates.
 
