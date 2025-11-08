@@ -243,11 +243,15 @@ void handleInput(bool& running) {
 
     if (state == VENDING_VIEW && selectedCategoryIndex != -1) {
         int bx = 20; int by = 20; int bw = mapX - 60; int bh = 36; int gap = 12;
+        by += 40 + gap; 
         SDL_Rect backBtn{ bx, by, 42, 36 };
         SDL_Rect addPointBtn{ bx + 54, by, bw - 54, bh };
-        SDL_Rect remPointBtn{ bx, by + (bh + gap), bw, bh };
-        SDL_Rect searchBtn{ bx, by + 2 * (bh + gap), bw, bh };
-        SDL_Rect deleteCatBtn{ bx, by + 3 * (bh + gap), bw, bh };
+        by += (bh + gap);
+        SDL_Rect remPointBtn{ bx, by, bw, bh };
+        by += (bh + gap);
+        SDL_Rect searchBtn{ bx, by, bw, bh };
+        by += (bh + gap);
+        SDL_Rect deleteCatBtn{ bx, by, bw, bh };
 
         static bool wasClicking = false;
         if (isClicking && !wasClicking) {
