@@ -420,7 +420,21 @@ void render() {
                 string display_text = textBuffer.empty() ? string("Type category name...") : textBuffer;
                 SDL_Color text_col = textBuffer.empty() ? SDL_Color{ 150,150,150,255 } : SDL_Color{ 0,0,0,255 };
                 SDL_Texture* ttex = createTextTexture(ren, font, display_text, text_col, tw, th);
-                if (ttex) { SDL_Rect dst{ tin.x + 6, tin.y + (tin.h - th) / 2, tw, th }; SDL_RenderCopy(ren, ttex, nullptr, &dst); SDL_DestroyTexture(ttex); }
+                if (ttex) { SDL_Rect dst{ tin.x + 6, tin.y + (tin.h - th) / 2, tw, th }; SDL_RenderCopy(ren, ttex, nullptr, &dst); SDL_DestroyTexture(ttex); 
+                }
+                bool cursorVisible = (SDL_GetTicks() / 500) % 2 == 0;
+
+                if (cursorVisible) {
+                    int textWidth, textHeight;
+                    TTF_SizeUTF8(font, textBuffer.c_str(), &textWidth, &textHeight);
+                    SDL_Rect cursorRect;
+                    cursorRect.x = tin.x + 6 + textWidth; 
+                    cursorRect.y = tin.y + 4;                       
+                    cursorRect.w = 2;                               
+                    cursorRect.h = tin.h - 8;                      
+                    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+                    SDL_RenderFillRect(ren, &cursorRect);
+                }
             }
         }
     }
