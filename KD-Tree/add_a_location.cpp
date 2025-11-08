@@ -6,6 +6,7 @@ KDNode* insert(KDNode * root , vector<double> point , int depth = 0){
         return newNode;
     }
     int axis = depth % 2;
+    
     if(point[axis] < root->point[axis]){
         root->left = insert(root->left , point , depth+1);
     }
@@ -14,4 +15,4 @@ KDNode* insert(KDNode * root , vector<double> point , int depth = 0){
     }
     
     return root;
-}
+}     
