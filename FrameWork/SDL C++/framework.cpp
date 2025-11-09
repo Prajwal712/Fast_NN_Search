@@ -15,6 +15,7 @@ using namespace std;
 const int WINDOW_W = 1200;
 const int WINDOW_H = 640;
 const float MAP_FRACTION = 0.70f;
+const int AXIS_PADDING = 30;
 
 struct Color { Uint8 r, g, b, a; };
 
@@ -340,14 +341,13 @@ void render() {
     SDL_RenderFillRect(ren, &leftRect);
 
     SDL_SetRenderDrawColor(ren, 160, 160, 160, 255);
-    int axisPadding = 30;
-    int mapInnerW = mapW - 2 * axisPadding;
-    int mapInnerH = mapH - 2 * axisPadding;
-    int axisX = mapX + axisPadding;
-    int axisY = mapY + mapH - axisPadding;
+    int mapInnerW = mapW - 2 * AXIS_PADDING;
+    int mapInnerH = mapH - 2 * AXIS_PADDING;
+    int axisX = mapX + AXIS_PADDING;
+    int axisY = mapY + mapH - AXIS_PADDING;
 
-    SDL_RenderDrawLine(ren, axisX, axisY, mapX + mapW - axisPadding, axisY);
-    SDL_RenderDrawLine(ren, axisX, mapY + axisPadding, axisX, axisY);
+    SDL_RenderDrawLine(ren, axisX, axisY, mapX + mapW - AXIS_PADDING, axisY);
+    SDL_RenderDrawLine(ren, axisX, mapY + AXIS_PADDING, axisX, axisY);
 
     if (font) {
         for (int t = 0; t <= 4; ++t) {
@@ -536,6 +536,42 @@ void render() {
     }
 
     SDL_RenderPresent(ren);
+    
+    if (awaitingMapClickForAddPoint && font) {
+        int mx, my;
+        SDL_GetMouseState(&mx, &my); // Get current mouse position
+
+        if (mx >= mapX) { // Check if mouse is over the map
+            
+            // --- THIS IS THE FIX ---
+            // Calculate coordinates relative to the DRAWN AXIS, not the map panel
+            int axisX = mapX + AXIS_PADDING;
+            int axisY = mapY + mapH - AXIS_PADDING;
+
+            int graphX = mx - axisX;
+            int graphY = axisY - my; // Y is inverted (subtract 'my' from the origin's Y)
+
+            string coordText = "(" + to_string(graphX) + ", " + to_string(graphY) + ")";
+            // --- END OF FIX ---
+
+            int tw, th;
+            SDL_Texture* tex = createTextTexture(ren, font, coordText, { 0, 0, 0, 255 }, tw, th);
+            if (tex) {
+                // Position the text slightly below and to the right of the cursor
+                SDL_Rect dst{ mx + 15, my + 10, tw, th }; 
+                
+                // Add a small background for readability
+                SDL_Rect bgRect{ dst.x - 4, dst.y - 2, dst.w + 8, dst.h + 4 };
+                SDL_SetRenderDrawColor(ren, 255, 255, 255, 200);
+                SDL_RenderFillRect(ren, &bgRect);
+
+                SDL_RenderCopy(ren, tex, nullptr, &dst);
+                SDL_DestroyTexture(tex);
+            }
+        }
+    }
+
+SDL_RenderPresent(ren);
 }
 
 int main(int argc, char** argv) {
