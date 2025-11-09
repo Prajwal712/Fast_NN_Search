@@ -14,4 +14,6 @@ struct KDNode{
 
 KDNode* insert(KDNode* root , vector<double> point , int depth = 0);
 
+void deleteTree(KDNode* root);
+
 #endif
