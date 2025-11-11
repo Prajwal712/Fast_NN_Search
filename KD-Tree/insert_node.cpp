@@ -1,6 +1,6 @@
 #include "kd_tree.h"
 
-KDNode* insert(KDNode * root , vector<double> point , int depth = 0){
+KDNode* insert(KDNode * root , vector<double> point , int depth){
     if(root == NULL){
         KDNode * newNode = new KDNode(point);
         return newNode;
