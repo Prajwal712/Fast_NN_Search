@@ -44,4 +44,9 @@ This project aims to:
   - Point density  
   - Query patterns  
 
+
+## ✔️ Command to run KD-Tree-
+  g++ -std=c++17 main.cpp insert.cpp remove_a_location.cpp NN_search.cpp delete_tree.cpp -o kdtree
+
+
 ---
