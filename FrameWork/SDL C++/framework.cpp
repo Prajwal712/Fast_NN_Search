@@ -1,5 +1,6 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
+#include <chrono>
 #include <string>
 #include <vector>
 #include <map>
@@ -39,6 +40,7 @@ int selectedCategoryIndex = -1;
 
 int windowW = WINDOW_W, windowH = WINDOW_H;
 int mapX, mapY, mapW, mapH;
+int mapInnerW, mapInnerH;
 
 int pointRadius = 8;
 SDL_Rect sliderRect{ 20, 0, 0, 24 };
@@ -111,6 +113,8 @@ void computeLayout(int w, int h) {
     sliderRect.x = 20;
     sliderRect.y = h - 100;
     sliderRect.w = mapX - 40;
+    mapInnerW = mapW - 2 * AXIS_PADDING;
+    mapInnerH = mapH - 2 * AXIS_PADDING;
 }
 
 void drawButton(const string& text, SDL_Rect rect, Color bg, bool glow) {
@@ -209,33 +213,38 @@ void handleInput(bool& running) {
                         awaitingMapClickForAddPoint = false;
                     } 
                     else if (awaitingMapClickForRemove) {
-                    if (pts.empty()) {
-                        message = "This group is empty!";
-                    } else {
-                        double best = 1e12; int bi = -1;
-                        for (size_t i = 0; i < pts.size(); ++i) {
-                            double d = dist2(gp.first, gp.second, pts[i].first, pts[i].second);
-                            if (d < best) { best = d; bi = (int)i; }
-                        }
-                        string coords = "(" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ")";
-                        pts.erase(pts.begin() + bi);
-                        message = "Removed nearest point at " + coords + ".";
-    
-                    }
-                    awaitingMapClickForRemove = false;
-                }
-                    else if (awaitingMapClickForSearch) {
                         if (pts.empty()) {
                             message = "This group is empty!";
-                            lastSearchIdx = -1;
                         } else {
                             double best = 1e12; int bi = -1;
                             for (size_t i = 0; i < pts.size(); ++i) {
                                 double d = dist2(gp.first, gp.second, pts[i].first, pts[i].second);
                                 if (d < best) { best = d; bi = (int)i; }
                             }
+                            string coords = "(" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ")";
+                            pts.erase(pts.begin() + bi);
+                            message = "Removed nearest point at " + coords + ".";
+                        }
+                        awaitingMapClickForRemove = false;
+                    } 
+                    else if (awaitingMapClickForSearch) {
+                        if (pts.empty()) {
+                            message = "This group is empty!";
+                            lastSearchIdx = -1;
+                        } else {
+                            auto start = std::chrono::high_resolution_clock::now();
+
+                            double best = 1e12; int bi = -1;
+                            for (size_t i = 0; i < pts.size(); ++i) {
+                                double d = dist2(gp.first, gp.second, pts[i].first, pts[i].second);
+                                if (d < best) { best = d; bi = (int)i; }
+                            }
+                            auto end = std::chrono::high_resolution_clock::now();
+                            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+
                             lastSearchIdx = bi;
-                            message = "Nearest point found at (" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ").";
+                            message = "Found point at (" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ").";
+                            message += " Time: " + to_string(duration) + " us.";
                         }
                         awaitingMapClickForSearch = false;
                     }
@@ -299,6 +308,8 @@ void handleInput(bool& running) {
         SDL_Rect searchBtn{ bx, by, bw, bh };
         by += (bh + gap);
         SDL_Rect deleteCatBtn{ bx, by, bw, bh };
+        by += (bh + gap);
+        SDL_Rect addRandomBtn{ bx, by, bw, bh }; 
 
         static bool wasClicking = false;
         if (isClicking && !wasClicking) {
@@ -339,6 +350,18 @@ void handleInput(bool& running) {
                 awaitingMapClickForRemove = false;
                 awaitingMapClickForSearch = false;
             }
+            else if (mx >= addRandomBtn.x && mx <= addRandomBtn.x + addRandomBtn.w && my >= addRandomBtn.y && my <= addRandomBtn.y + addRandomBtn.h) {
+                if (selectedCategoryIndex >= 0) {
+                    auto& pts = categories[selectedCategoryIndex].points;
+                    for (int i = 0; i < 100; ++i) {
+                        int rx = rand() % mapInnerW;
+                        int ry = rand() % mapInnerH;
+                        pts.push_back({rx, ry});
+                    }
+                    message = "Added 100 random points.";
+                    messageTimer = SDL_GetTicks();
+                }
+            }
         }
         wasClicking = isClicking;
     }
@@ -357,8 +380,6 @@ void render() {
     SDL_RenderFillRect(ren, &leftRect);
 
     SDL_SetRenderDrawColor(ren, 160, 160, 160, 255);
-    int mapInnerW = mapW - 2 * AXIS_PADDING;
-    int mapInnerH = mapH - 2 * AXIS_PADDING;
     int axisX = mapX + AXIS_PADDING;
     int axisY = mapY + mapH - AXIS_PADDING;
 
@@ -492,11 +513,20 @@ void render() {
 
         SDL_Rect deleteCatBtn{ bx, by, bw, bh }; drawButton("Delete Category", deleteCatBtn, Color{ 180,60,60,255 }, false);
 
+        by += (bh + gap);
+        SDL_Rect addRandomBtn{ bx, by, bw, bh }; 
+        drawButton("Add 100 Random Points", addRandomBtn, Color{ 200, 140, 40, 255 }, false);
+
+
         if (font) {
             int tw, th;
             string info = "Total Points: " + to_string(currentCat.points.size());
             SDL_Texture* ttex = createTextTexture(ren, font, info, { 200,200,200,255 }, tw, th);
-            if (ttex) { SDL_Rect dst{ bx, by + (bh + gap), tw, th }; SDL_RenderCopy(ren, ttex, nullptr, &dst); SDL_DestroyTexture(ttex); }
+            if (ttex) { 
+                SDL_Rect dst{ bx, by + (bh + gap), tw, th }; // This 'by' is now correct
+                SDL_RenderCopy(ren, ttex, nullptr, &dst); 
+                SDL_DestroyTexture(ttex); 
+            }
         }
     }
 
