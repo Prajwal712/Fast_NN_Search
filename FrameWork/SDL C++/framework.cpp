@@ -29,7 +29,6 @@ struct Category {
 
 enum UIState { MAIN_VIEW, VENDING_VIEW };
 
-// moved variables to allow functions to acess them 
 SDL_Window* win = nullptr;
 SDL_Renderer* ren = nullptr;
 TTF_Font* font = nullptr;
@@ -53,6 +52,13 @@ SDL_Rect textInputRect{ 60, 120, 240, 32 };
 string message;
 Uint32 messageTimer = 0;
 
+bool numPointsInputActive = false;
+string numPointsBuffer = "1000";
+SDL_Rect numPointsInputRect;
+
+int maxPointsToRender = 5000;
+SDL_Rect renderLimitSliderRect{ 20, 0, 0, 24 };
+bool draggingRenderSlider = false;
 
 bool awaitingMapClickForAddPoint = false;
 bool awaitingMapClickForRemove = false;
@@ -83,7 +89,6 @@ void drawFilledCircle(SDL_Renderer* ren, int cx, int cy, int radius) {
     }
 }
 
-// made lambda functions from main normal so other functions can use them
 Color makeColor() { 
     return Color{ (Uint8)(rand() % 156 + 80), (Uint8)(rand() % 156 + 80), (Uint8)(rand() % 156 + 80), 255 }; 
 }
@@ -113,6 +118,7 @@ void computeLayout(int w, int h) {
     sliderRect.x = 20;
     sliderRect.y = h - 100;
     sliderRect.w = mapX - 40;
+    renderLimitSliderRect = { 20, sliderRect.y - 60, mapX - 40, 24 };
     mapInnerW = mapW - 2 * AXIS_PADDING;
     mapInnerH = mapH - 2 * AXIS_PADDING;
 }
@@ -171,6 +177,7 @@ void handleInput(bool& running) {
                 SDL_Rect addBtn{ 20, 240, mapX - 40, 40 };
                 if (mx >= addBtn.x && mx <= addBtn.x + addBtn.w && my >= addBtn.y && my <= addBtn.y + addBtn.h) {
                     textInputActive = true; textBuffer.clear(); SDL_StartTextInput();
+                    numPointsInputActive = false;
                     textInputRect.y = addBtn.y - 42;
                     continue;
                 }
@@ -184,8 +191,18 @@ void handleInput(bool& running) {
 
                 if (mx >= sliderRect.x && mx <= sliderRect.x + sliderRect.w && my >= sliderRect.y && my <= sliderRect.y + sliderRect.h) {
                     draggingSlider = true;
+                    draggingRenderSlider = false;
                     float t = float(mx - sliderRect.x) / float(sliderRect.w);
                     pointRadius = int(4 + t * 20);
+                    continue;
+                }
+                
+                if (mx >= renderLimitSliderRect.x && mx <= renderLimitSliderRect.x + renderLimitSliderRect.w && my >= renderLimitSliderRect.y && my <= renderLimitSliderRect.y + renderLimitSliderRect.h) {
+                    draggingRenderSlider = true;
+                    draggingSlider = false;
+                    float t = float(mx - renderLimitSliderRect.x) / float(renderLimitSliderRect.w);
+                    t = max(0.0f, min(1.0f, t));
+                    maxPointsToRender = int(100 + t * 19900);
                     continue;
                 }
             }
@@ -254,6 +271,7 @@ void handleInput(bool& running) {
         }
         else if (e.type == SDL_MOUSEBUTTONUP) {
             draggingSlider = false;
+            draggingRenderSlider = false;
         }
         else if (e.type == SDL_MOUSEMOTION) {
             if (draggingSlider) {
@@ -261,6 +279,12 @@ void handleInput(bool& running) {
                 float t = float(mx - sliderRect.x) / float(sliderRect.w);
                 t = max(0.0f, min(1.0f, t));
                 pointRadius = int(4 + t * 20);
+            }
+            else if (draggingRenderSlider) {
+                int mx = e.motion.x;
+                float t = float(mx - renderLimitSliderRect.x) / float(renderLimitSliderRect.w);
+                t = max(0.0f, min(1.0f, t));
+                maxPointsToRender = int(100 + t * 19900);
             }
         }
         else if (e.type == SDL_KEYDOWN) {
@@ -283,14 +307,51 @@ void handleInput(bool& running) {
                     textBuffer.pop_back();
                 }
             }
+            else if (numPointsInputActive) {
+                if (e.key.keysym.sym == SDLK_RETURN) {
+                    int numToAdd = 0;
+                    try { numToAdd = stoi(numPointsBuffer); }
+                    catch (...) { numToAdd = 0; }
+
+                    if (numToAdd > 0 && selectedCategoryIndex >= 0) {
+                        auto& pts = categories[selectedCategoryIndex].points;
+                        for (int i = 0; i < numToAdd; ++i) {
+                            int rx = rand() % mapInnerW;
+                            int ry = rand() % mapInnerH;
+                            pts.push_back({ rx, ry });
+                        }
+                        message = "Added " + to_string(numToAdd) + " random points.";
+                        messageTimer = SDL_GetTicks();
+                    }
+                    numPointsInputActive = false;
+                    SDL_StopTextInput();
+                }
+                else if (e.key.keysym.sym == SDLK_ESCAPE) {
+                    numPointsInputActive = false;
+                    SDL_StopTextInput();
+                }
+                else if (e.key.keysym.sym == SDLK_BACKSPACE && !numPointsBuffer.empty()) {
+                    numPointsBuffer.pop_back();
+                }
+            }
             else if (state == VENDING_VIEW && e.key.keysym.sym == SDLK_BACKSPACE) {
                 state = MAIN_VIEW; selectedCategoryIndex = -1; awaitingMapClickForAddPoint = false; lastSearchIdx = -1;
                 awaitingMapClickForRemove = false; 
                 awaitingMapClickForSearch = false;
+                numPointsInputActive = false;
             }
         }
         else if (e.type == SDL_TEXTINPUT) {
             if (textInputActive) { textBuffer += e.text.text; }
+            else if (numPointsInputActive) {
+                char* c = e.text.text;
+                while (*c) {
+                    if (*c >= '0' && *c <= '9') {
+                        numPointsBuffer += *c;
+                    }
+                    c++;
+                }
+            }
         }
     }
 
@@ -310,6 +371,7 @@ void handleInput(bool& running) {
         SDL_Rect deleteCatBtn{ bx, by, bw, bh };
         by += (bh + gap);
         SDL_Rect addRandomBtn{ bx, by, bw, bh }; 
+        numPointsInputRect = { bx, by + bh + 4, bw, 32 };
 
         static bool wasClicking = false;
         if (isClicking && !wasClicking) {
@@ -349,18 +411,19 @@ void handleInput(bool& running) {
                 awaitingMapClickForAddPoint = false;
                 awaitingMapClickForRemove = false;
                 awaitingMapClickForSearch = false;
+                numPointsInputActive = false;
             }
             else if (mx >= addRandomBtn.x && mx <= addRandomBtn.x + addRandomBtn.w && my >= addRandomBtn.y && my <= addRandomBtn.y + addRandomBtn.h) {
-                if (selectedCategoryIndex >= 0) {
-                    auto& pts = categories[selectedCategoryIndex].points;
-                    for (int i = 0; i < 100; ++i) {
-                        int rx = rand() % mapInnerW;
-                        int ry = rand() % mapInnerH;
-                        pts.push_back({rx, ry});
-                    }
-                    message = "Added 100 random points.";
-                    messageTimer = SDL_GetTicks();
+                numPointsInputActive = !numPointsInputActive;
+                textInputActive = false;
+                if (numPointsInputActive) {
+                    SDL_StartTextInput();
+                    message = "Enter number of points to add, then press Enter.";
+                } else {
+                    SDL_StopTextInput();
+                    message = "Add random points cancelled.";
                 }
+                messageTimer = SDL_GetTicks();
             }
         }
         wasClicking = isClicking;
@@ -406,7 +469,10 @@ void render() {
         auto& cat = categories[i];
         bool isHighlighted = cat.selected || (state == VENDING_VIEW && (int)i == selectedCategoryIndex);
 
-        for (size_t j = 0; j < cat.points.size(); ++j) {
+        size_t totalPoints = cat.points.size();
+        size_t renderLimit = min(totalPoints, (size_t)maxPointsToRender);
+
+        for (size_t j = 0; j < renderLimit; ++j) {
             auto p_graph = cat.points[j];
             auto p_world = graphToWorld(p_graph.first, p_graph.second);
             int wx = p_world.first;
@@ -437,8 +503,19 @@ void render() {
         SDL_Rect addBtn{ 20, 240, mapX - 40, 40 }; drawButton("Add Category", addBtn, Color{ 70,130,180,255 }, textInputActive);
         SDL_Rect removeAllBtn{ 20, 290, mapX - 40, 40 }; drawButton("Remove All", removeAllBtn, Color{ 180,70,70,255 }, false);
 
-        int sw = sliderRect.w; int sx = sliderRect.x; int sy = sliderRect.y; int sh = sliderRect.h;
+        int rsw = renderLimitSliderRect.w; int rsx = renderLimitSliderRect.x; int rsy = renderLimitSliderRect.y; int rsh = renderLimitSliderRect.h;
+        if (font) {
+            int labelW, labelH;
+            string label = "Max Points to Render: " + to_string(maxPointsToRender);
+            SDL_Texture* labtex = createTextTexture(ren, font, label, { 255,255,255,255 }, labelW, labelH);
+            if (labtex) { SDL_Rect ld{ rsx, rsy - 26, labelW, labelH }; SDL_RenderCopy(ren, labtex, nullptr, &ld); SDL_DestroyTexture(labtex); }
+        }
+        SDL_SetRenderDrawColor(ren, 100, 100, 100, 255); SDL_Rect rtrack{ rsx, rsy + rsh / 2 - 4, rsw, 8 }; SDL_RenderFillRect(ren, &rtrack);
+        float rt = float(maxPointsToRender - 100) / float(19900);
+        int rthumbX = rsx + int(rt * rsw);
+        SDL_SetRenderDrawColor(ren, 200, 200, 200, 255); SDL_Rect rthumb{ rthumbX - 8, rsy, 16, rsh }; SDL_RenderFillRect(ren, &rthumb);
 
+        int sw = sliderRect.w; int sx = sliderRect.x; int sy = sliderRect.y; int sh = sliderRect.h;
         if (font) {
             int labelW, labelH;
             SDL_Texture* labtex = createTextTexture(ren, font, string("Point Size: ") + to_string(pointRadius), { 255,255,255,255 }, labelW, labelH);
@@ -515,17 +592,51 @@ void render() {
 
         by += (bh + gap);
         SDL_Rect addRandomBtn{ bx, by, bw, bh }; 
-        drawButton("Add 100 Random Points", addRandomBtn, Color{ 200, 140, 40, 255 }, false);
+        drawButton("Add N Random Points", addRandomBtn, Color{ 200, 140, 40, 255 }, numPointsInputActive);
 
+        if (numPointsInputActive) {
+            SDL_Rect tin = numPointsInputRect;
+            SDL_SetRenderDrawColor(ren, 255, 255, 255, 230); SDL_RenderFillRect(ren, &tin);
+            SDL_SetRenderDrawColor(ren, 0, 0, 0, 255); SDL_RenderDrawRect(ren, &tin);
+            if (font) {
+                int tw, th;
+                string display_text = numPointsBuffer;
+                SDL_Color text_col = { 0,0,0,255 };
+                SDL_Texture* ttex = createTextTexture(ren, font, display_text, text_col, tw, th);
+                if (ttex) {
+                    SDL_Rect dst{ tin.x + 6, tin.y + (tin.h - th) / 2, tw, th };
+                    SDL_RenderCopy(ren, ttex, nullptr, &dst);
+                    SDL_DestroyTexture(ttex);
+                }
+                bool cursorVisible = (SDL_GetTicks() / 500) % 2 == 0;
+                if (cursorVisible) {
+                    int textWidth, textHeight;
+                    TTF_SizeUTF8(font, numPointsBuffer.c_str(), &textWidth, &textHeight);
+                    SDL_Rect cursorRect{ tin.x + 6 + textWidth, tin.y + 4, 2, tin.h - 8 };
+                    SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
+                    SDL_RenderFillRect(ren, &cursorRect);
+                }
+            }
+        }
 
-        if (font) {
+        if (font && !numPointsInputActive) {
             int tw, th;
-            string info = "Total Points: " + to_string(currentCat.points.size());
+            size_t total = currentCat.points.size();
+            size_t rendered = min(total, (size_t)maxPointsToRender);
+            string info = "Total Points: " + to_string(total);
+            string info2 = "Rendering: " + to_string(rendered);
+
             SDL_Texture* ttex = createTextTexture(ren, font, info, { 200,200,200,255 }, tw, th);
             if (ttex) { 
-                SDL_Rect dst{ bx, by + (bh + gap), tw, th }; // This 'by' is now correct
+                SDL_Rect dst{ bx, by + bh + gap, tw, th }; 
                 SDL_RenderCopy(ren, ttex, nullptr, &dst); 
                 SDL_DestroyTexture(ttex); 
+            }
+            ttex = createTextTexture(ren, font, info2, { 200,200,200,255 }, tw, th);
+            if (ttex) {
+                SDL_Rect dst{ bx, by + bh + gap + th + 4, tw, th };
+                SDL_RenderCopy(ren, ttex, nullptr, &dst);
+                SDL_DestroyTexture(ttex);
             }
         }
     }
@@ -634,8 +745,8 @@ int main(int argc, char** argv) {
     bool running = true;
     while (running) {
         handleInput(running); 
-        render();             
-        SDL_Delay(10);        
+        render();           
+        SDL_Delay(10);      
     }
     
     if (font) TTF_CloseFont(font);
