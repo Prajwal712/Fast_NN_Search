@@ -51,7 +51,10 @@ SDL_Rect textInputRect{ 60, 120, 240, 32 };
 string message;
 Uint32 messageTimer = 0;
 
+
 bool awaitingMapClickForAddPoint = false;
+bool awaitingMapClickForRemove = false;
+bool awaitingMapClickForSearch = false;
 int lastSearchIdx = -1;
 
 static SDL_Texture* createTextTexture(SDL_Renderer* rend, TTF_Font* font, const string& text, SDL_Color col, int& w, int& h) {
@@ -78,17 +81,25 @@ void drawFilledCircle(SDL_Renderer* ren, int cx, int cy, int radius) {
     }
 }
 
-// made lambda functions from main normal so other functions can use them 
+// made lambda functions from main normal so other functions can use them
 Color makeColor() { 
     return Color{ (Uint8)(rand() % 156 + 80), (Uint8)(rand() % 156 + 80), (Uint8)(rand() % 156 + 80), 255 }; 
 }
 
-pair<int, int> worldToMap(int wx, int wy) {
-    int mx = wx - mapX;
-    int my = wy - mapY;
-    mx = max(0, min(mx, mapW));
-    my = max(0, min(my, mapH));
-    return { mx, my };
+pair<int, int> worldToGraph(int mx, int my) {
+    int axisX = mapX + AXIS_PADDING;
+    int axisY = mapY + mapH - AXIS_PADDING;
+    int graphX = mx - axisX;
+    int graphY = axisY - my; 
+    return { graphX, graphY };
+}
+
+pair<int, int> graphToWorld(int gx, int gy) {
+    int axisX = mapX + AXIS_PADDING;
+    int axisY = mapY + mapH - AXIS_PADDING;
+    int worldX = axisX + gx;
+    int worldY = axisY - gy; 
+    return { worldX, worldY };
 }
 
 void computeLayout(int w, int h) {
@@ -174,28 +185,61 @@ void handleInput(bool& running) {
                     continue;
                 }
             }
-            else if (mx >= mapX) {
+            else if (mx >= mapX) { 
                 if (state == MAIN_VIEW) {
-                    auto mp = worldToMap(e.button.x, e.button.y);
+                    auto gp = worldToGraph(e.button.x, e.button.y);
                     double bestDist2 = 1e12; int bestCat = -1;
                     for (size_t i = 0; i < categories.size(); ++i) {
                         for (auto& p : categories[i].points) {
-                            double d2 = dist2(mp.first, mp.second, p.first, p.second);
+                            double d2 = dist2(gp.first, gp.second, p.first, p.second);
                             if (d2 < bestDist2) { bestDist2 = d2; bestCat = (int)i; }
                         }
                     }
                     if (bestCat != -1 && bestDist2 < (pointRadius + 10) * (pointRadius + 10)) {
                         categories[bestCat].selected = !categories[bestCat].selected;
                     }
-                }
-                else if (state == VENDING_VIEW) {
-                    if (awaitingMapClickForAddPoint && selectedCategoryIndex >= 0) {
-                        auto mp = worldToMap(e.button.x, e.button.y);
-                        categories[selectedCategoryIndex].points.push_back({ mp.first, mp.second });
-                        message = "New point logged at (" + to_string(mp.first) + ", " + to_string(mp.second) + ").";
-                        messageTimer = SDL_GetTicks();
+                } 
+                else if (state == VENDING_VIEW && selectedCategoryIndex >= 0) {
+                    auto gp = worldToGraph(e.button.x, e.button.y);
+                    auto& pts = categories[selectedCategoryIndex].points;
+
+                    if (awaitingMapClickForAddPoint) {
+                        pts.push_back({ gp.first, gp.second });
+                        message = "New point logged at (" + to_string(gp.first) + ", " + to_string(gp.second) + ").";
                         awaitingMapClickForAddPoint = false;
+                    } 
+                    else if (awaitingMapClickForRemove) {
+                    if (pts.empty()) {
+                        message = "This group is empty!";
+                    } else {
+                        double best = 1e12; int bi = -1;
+                        for (size_t i = 0; i < pts.size(); ++i) {
+                            double d = dist2(gp.first, gp.second, pts[i].first, pts[i].second);
+                            if (d < best) { best = d; bi = (int)i; }
+                        }
+                        string coords = "(" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ")";
+                        pts.erase(pts.begin() + bi);
+                        message = "Removed nearest point at " + coords + ".";
+    
                     }
+                    awaitingMapClickForRemove = false;
+                }
+                    else if (awaitingMapClickForSearch) {
+                        if (pts.empty()) {
+                            message = "This group is empty!";
+                            lastSearchIdx = -1;
+                        } else {
+                            double best = 1e12; int bi = -1;
+                            for (size_t i = 0; i < pts.size(); ++i) {
+                                double d = dist2(gp.first, gp.second, pts[i].first, pts[i].second);
+                                if (d < best) { best = d; bi = (int)i; }
+                            }
+                            lastSearchIdx = bi;
+                            message = "Nearest point found at (" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ").";
+                        }
+                        awaitingMapClickForSearch = false;
+                    }
+                    messageTimer = SDL_GetTicks();
                 }
             }
         }
@@ -232,6 +276,8 @@ void handleInput(bool& running) {
             }
             else if (state == VENDING_VIEW && e.key.keysym.sym == SDLK_BACKSPACE) {
                 state = MAIN_VIEW; selectedCategoryIndex = -1; awaitingMapClickForAddPoint = false; lastSearchIdx = -1;
+                awaitingMapClickForRemove = false; 
+                awaitingMapClickForSearch = false;
             }
         }
         else if (e.type == SDL_TEXTINPUT) {
@@ -258,70 +304,40 @@ void handleInput(bool& running) {
         if (isClicking && !wasClicking) {
             if (mx >= backBtn.x && mx <= backBtn.x + backBtn.w && my >= backBtn.y && my <= backBtn.y + backBtn.h) {
                 state = MAIN_VIEW; selectedCategoryIndex = -1; awaitingMapClickForAddPoint = false; lastSearchIdx = -1;
+                awaitingMapClickForRemove = false;
+                awaitingMapClickForSearch = false;
             }
             else if (mx >= addPointBtn.x && mx <= addPointBtn.x + addPointBtn.w && my >= addPointBtn.y && my <= addPointBtn.y + addPointBtn.h) {
                 awaitingMapClickForAddPoint = !awaitingMapClickForAddPoint;
+                awaitingMapClickForRemove = false;
+                awaitingMapClickForSearch = false;
                 message = awaitingMapClickForAddPoint ? "Click map to place a new point now." : "Point placement mode off.";
                 messageTimer = SDL_GetTicks();
             }
             else if (mx >= remPointBtn.x && mx <= remPointBtn.x + remPointBtn.w && my >= remPointBtn.y && my <= remPointBtn.y + remPointBtn.h) {
-                if (!categories[selectedCategoryIndex].points.empty()) {
-                    int mxw, myw; SDL_GetMouseState(&mxw, &myw);
-                    if (mxw >= mapX) {
-                        auto mp = worldToMap(mxw, myw);
-                        auto& pts = categories[selectedCategoryIndex].points;
-                        double best = 1e12; int bi = -1;
-                        for (size_t i = 0; i < pts.size(); ++i) {
-                            double d = dist2(mp.first, mp.second, pts[i].first, pts[i].second);
-                            if (d < best) { best = d; bi = (int)i; }
-                        }
-                        if (bi != -1 && best < (pointRadius + 20) * (pointRadius + 20)) {
-                            pts.erase(pts.begin() + bi);
-                            message = "Removed the closest point.";
-                        }
-                        else {
-                            message = "Nothing close enough to remove on the map.";
-                        }
-                    }
-                    else {
-                        message = "Move mouse over the map to select a point for removal.";
-                    }
-                }
-                else {
-                    message = "No points here to remove.";
-                }
+                awaitingMapClickForRemove = !awaitingMapClickForRemove;
                 awaitingMapClickForAddPoint = false;
+                awaitingMapClickForSearch = false;
+                message = awaitingMapClickForRemove ? "Click on map to remove nearest point." : "Remove mode off.";
                 messageTimer = SDL_GetTicks();
+                lastSearchIdx = -1;
             }
             else if (mx >= searchBtn.x && mx <= searchBtn.x + searchBtn.w && my >= searchBtn.y && my <= searchBtn.y + searchBtn.h) {
-                int mxw, myw; SDL_GetMouseState(&mxw, &myw);
+                awaitingMapClickForSearch = !awaitingMapClickForSearch;
                 awaitingMapClickForAddPoint = false;
-                if (mxw >= mapX) {
-                    auto mp = worldToMap(mxw, myw);
-                    auto& pts = categories[selectedCategoryIndex].points;
-                    if (pts.empty()) {
-                        message = "This group is empty!"; lastSearchIdx = -1;
-                    }
-                    else {
-                        double best = 1e12; int bi = -1;
-                        for (size_t i = 0; i < pts.size(); ++i) {
-                            double d = dist2(mp.first, mp.second, pts[i].first, pts[i].second);
-                            if (d < best) { best = d; bi = (int)i; }
-                        }
-                        lastSearchIdx = bi;
-                        message = "Nearest point found at map coords: (" + to_string(pts[bi].first) + ", " + to_string(pts[bi].second) + ").";
-                    }
-                }
-                else {
-                    message = "Move mouse over map to search."; lastSearchIdx = -1;
-                }
+                awaitingMapClickForRemove = false;
+                message = awaitingMapClickForSearch ? "Click on map to find nearest point." : "Search mode off.";
                 messageTimer = SDL_GetTicks();
+                lastSearchIdx = -1;
             }
             else if (mx >= deleteCatBtn.x && mx <= deleteCatBtn.x + deleteCatBtn.w && my >= deleteCatBtn.y && my <= deleteCatBtn.y + deleteCatBtn.h) {
                 string n = categories[selectedCategoryIndex].name;
                 categories.erase(categories.begin() + selectedCategoryIndex);
                 selectedCategoryIndex = -1; state = MAIN_VIEW;
                 message = "Deleted group: " + n; messageTimer = SDL_GetTicks();
+                awaitingMapClickForAddPoint = false;
+                awaitingMapClickForRemove = false;
+                awaitingMapClickForSearch = false;
             }
         }
         wasClicking = isClicking;
@@ -370,9 +386,10 @@ void render() {
         bool isHighlighted = cat.selected || (state == VENDING_VIEW && (int)i == selectedCategoryIndex);
 
         for (size_t j = 0; j < cat.points.size(); ++j) {
-            auto p = cat.points[j];
-            int wx = mapX + p.first;
-            int wy = mapY + p.second;
+            auto p_graph = cat.points[j];
+            auto p_world = graphToWorld(p_graph.first, p_graph.second);
+            int wx = p_world.first;
+            int wy = p_world.second;
 
             if (isHighlighted) {
                 SDL_SetRenderDrawColor(ren, cat.color.r, cat.color.g, cat.color.b, 120);
@@ -420,7 +437,10 @@ void render() {
                 string display_text = textBuffer.empty() ? string("Type category name...") : textBuffer;
                 SDL_Color text_col = textBuffer.empty() ? SDL_Color{ 150,150,150,255 } : SDL_Color{ 0,0,0,255 };
                 SDL_Texture* ttex = createTextTexture(ren, font, display_text, text_col, tw, th);
-                if (ttex) { SDL_Rect dst{ tin.x + 6, tin.y + (tin.h - th) / 2, tw, th }; SDL_RenderCopy(ren, ttex, nullptr, &dst); SDL_DestroyTexture(ttex); 
+                if (ttex) { 
+                    SDL_Rect dst{ tin.x + 6, tin.y + (tin.h - th) / 2, tw, th }; 
+                    SDL_RenderCopy(ren, ttex, nullptr, &dst); 
+                    SDL_DestroyTexture(ttex); 
                 }
                 bool cursorVisible = (SDL_GetTicks() / 500) % 2 == 0;
 
@@ -431,7 +451,7 @@ void render() {
                     cursorRect.x = tin.x + 6 + textWidth; 
                     cursorRect.y = tin.y + 4;                       
                     cursorRect.w = 2;                               
-                    cursorRect.h = tin.h - 8;                      
+                    cursorRect.h = tin.h - 8;                       
                     SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
                     SDL_RenderFillRect(ren, &cursorRect);
                 }
@@ -460,12 +480,13 @@ void render() {
 
         by += (bh + gap);
 
-        SDL_Rect remPointBtn{ bx, by, bw, bh }; drawButton("Remove nearest point (click map)", remPointBtn, Color{ 200,100,80,255 }, false);
+        SDL_Rect remPointBtn{ bx, by, bw, bh }; 
+        drawButton("Remove nearest point (click map)", remPointBtn, Color{ 200,100,80,255 }, awaitingMapClickForRemove);
 
         by += (bh + gap);
 
         SDL_Rect searchBtn{ bx, by, bw, bh };
-        drawButton("Search nearest point to mouse", searchBtn, Color{ 100,140,220,255 }, lastSearchIdx != -1);
+        drawButton("Search nearest point to mouse", searchBtn, Color{ 100,140,220,255 }, awaitingMapClickForSearch || lastSearchIdx != -1);
 
         by += (bh + gap);
 
@@ -535,32 +556,19 @@ void render() {
         }
     }
 
-    SDL_RenderPresent(ren);
-    
-    if (awaitingMapClickForAddPoint && font) {
+    if ((awaitingMapClickForAddPoint || awaitingMapClickForRemove || awaitingMapClickForSearch) && font) {
         int mx, my;
-        SDL_GetMouseState(&mx, &my); // Get current mouse position
+        SDL_GetMouseState(&mx, &my); 
 
-        if (mx >= mapX) { // Check if mouse is over the map
-            
-            // --- THIS IS THE FIX ---
-            // Calculate coordinates relative to the DRAWN AXIS, not the map panel
-            int axisX = mapX + AXIS_PADDING;
-            int axisY = mapY + mapH - AXIS_PADDING;
-
-            int graphX = mx - axisX;
-            int graphY = axisY - my; // Y is inverted (subtract 'my' from the origin's Y)
-
-            string coordText = "(" + to_string(graphX) + ", " + to_string(graphY) + ")";
-            // --- END OF FIX ---
+        if (mx >= mapX) { 
+            auto gp = worldToGraph(mx, my);
+            string coordText = "(" + to_string(gp.first) + ", " + to_string(gp.second) + ")";
 
             int tw, th;
             SDL_Texture* tex = createTextTexture(ren, font, coordText, { 0, 0, 0, 255 }, tw, th);
             if (tex) {
-                // Position the text slightly below and to the right of the cursor
                 SDL_Rect dst{ mx + 15, my + 10, tw, th }; 
                 
-                // Add a small background for readability
                 SDL_Rect bgRect{ dst.x - 4, dst.y - 2, dst.w + 8, dst.h + 4 };
                 SDL_SetRenderDrawColor(ren, 255, 255, 255, 200);
                 SDL_RenderFillRect(ren, &bgRect);
@@ -571,7 +579,7 @@ void render() {
         }
     }
 
-SDL_RenderPresent(ren);
+    SDL_RenderPresent(ren);
 }
 
 int main(int argc, char** argv) {
@@ -596,7 +604,7 @@ int main(int argc, char** argv) {
     bool running = true;
     while (running) {
         handleInput(running); 
-        render();            
+        render();             
         SDL_Delay(10);        
     }
     
