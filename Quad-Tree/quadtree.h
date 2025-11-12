@@ -1,7 +1,15 @@
 #ifndef QUADTREE_H
 #define QUADTREE_H
 
-#include <bits/stdc++.h>
+// #include <bits/stdc++.h>
+
+#include <iostream>
+#include <vector>
+#include <cmath>
+#include <limits>
+#include <algorithm>
+using namespace std;
+
 using namespace std;
 
 struct Point {
@@ -30,7 +38,7 @@ QuadNode* insert(QuadNode* node, Point p);
 bool contains(QuadNode* node, Point p);
 void subdivide(QuadNode* node);
 Point* search(QuadNode* node, Point target);
-void printTree(QuadNode* node, int depth = 0);
+void printTree(QuadNode* node, int depth);
 void deleteTree(QuadNode* node);
 QuadNode* removeNode(QuadNode* node, Point target);
 Point findNearest(QuadNode* root, Point target);
