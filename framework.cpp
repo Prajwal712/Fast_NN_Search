@@ -86,6 +86,7 @@ enum UIState { MAIN_VIEW, VENDING_VIEW };
 SDL_Window* win = nullptr;
 SDL_Renderer* ren = nullptr;
 TTF_Font* font = nullptr;
+TTF_Font* titleFont = nullptr;
 
 UIState state = MAIN_VIEW;
 vector<Category> categories;
@@ -885,7 +886,31 @@ void render() {
         }
     }
 
+    if (titleFont) {
+        int tw, th;
+        string title = "NEAREST NEIGHBOUR SEARCH";
+        SDL_Color col = {0, 0, 0, 255};
+
+        SDL_Texture* tex = createTextTexture(ren, titleFont, title, col, tw, th);
+        if (tex) {
+            SDL_Rect dst;
+
+            dst.x = windowW - tw - 20;
+            dst.y = 10;
+            dst.w = tw;
+            dst.h = th;
+
+            SDL_SetRenderDrawColor(ren, 255, 255, 255, 200);
+            SDL_Rect bg{ dst.x - 10, dst.y - 6, dst.w + 20, dst.h + 12 };
+            SDL_RenderFillRect(ren, &bg);
+
+            SDL_RenderCopy(ren, tex, nullptr, &dst);
+            SDL_DestroyTexture(tex);
+        }
+    }
+
     SDL_RenderPresent(ren);
+    
 }
 
 int main(int argc, char** argv) {
@@ -899,6 +924,8 @@ int main(int argc, char** argv) {
 
     font = TTF_OpenFont("arial.ttf", 16);
     if (!font) { SDL_Log("Warning: 'arial.ttf' not found."); }
+    titleFont = TTF_OpenFont("arial.ttf", 28);
+    if (!titleFont) SDL_Log("Warning: titleFont not loaded");
 
     srand((unsigned)time(nullptr));
 
