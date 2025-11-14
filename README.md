@@ -1,52 +1,40 @@
-# 🚀 Fast_NN_Search
+# Fast_NN_Search
 
-A project to **implement**, **visualize**, and **compare** k-d trees and quadtrees for efficient storage and retrieval of point coordinates.
+A C++ application using SDL2 to visualize and benchmark nearest-neighbor search algorithms.
 
----
+## ❗️ Prerequisites
 
-## 📌 Overview
+This project is built for a **64-bit Windows environment** using the **MinGW-w64 compiler**.
 
-This repository contains implementations of two spatial data structures:
+Before you can compile you MUST have a 64-bit C++ compiler. If your compiler is 32-bit (`mingw32`) this will not compile.
 
-- **k-d Tree** — a binary space partitioning structure optimized for k-dimensional searching (here, 2D)
-- **Quadtree** — a hierarchical spatial index that recursively subdivides the plane into four quadrants
+There is no need to download sdl2 libraries as we have included those in the repo itself.
 
-The goal is to efficiently store 2D point coordinates and perform **fast Nearest Neighbor (NN) searches**.
+## 🚀 How to Compile and Run
 
-A **user interface (UI)** is provided to visualize how these structures partition space and handle queries. Benchmarking tools compare insertion, searching, and deletion time complexities to determine which structure performs best in different scenarios.
+This repository includes all necessary 64-bit libraries, fonts, and DLLs.
 
----
+1.  **Clone the repository:**
 
-## 🌲 Features
+    ```sh
+    git clone [https://github.com/Prajwal712/Fast_NN_Search.git](https://github.com/Prajwal712/Fast_NN_Search.git)
+    ```
 
-✅ **K-D Tree** implementation (2D-specific)  
-✅ **Quadtree** implementation for spatial indexing  
-✅ **Interactive UI** to visualize partitioning, insertion, and queries  
-✅ **Performance analysis** (theoretical + empirical)  
-✅ **Nearest Neighbor search comparison**  
-✅ Clean, modular code structure  
+2.  **Navigate to the project directory:**
 
----
+    ```sh
+    cd Fast_NN_Search
+    ```
 
-## 🎯 Project Goals
+3.  **Run the compile script:**
 
-This project aims to:
+    ```sh
+    .\compile.bat
+    ```
 
-- Implement k-d trees and quadtrees **from scratch**  
-- Create a UI to help visualize construction and search  
-- Benchmark performance for:
-  - Insertion  
-  - Searching  
-  - Nearest Neighbor queries  
-  - Deletion (if implemented)  
-- Determine which structure performs best under:
-  - Varying data distribution  
-  - Point density  
-  - Query patterns  
+    This will create `my_map_app.exe`.
 
-
-## ✔️ Command to run KD-Tree-
-  g++ -std=c++17 main.cpp insert.cpp remove_a_location.cpp NN_search.cpp delete_tree.cpp -o kdtree
-
-
----
+4.  **Run the application:**
+    ```sh
+    .\my_map_app.exe
+    ```
