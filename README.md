@@ -7,6 +7,8 @@ A C++ application using SDL2 to visualize and benchmark nearest-neighbor search 
 This project is built for a **64-bit Windows environment** using the **MinGW-w64 compiler**.
 
 Before you can compile you MUST have a 64-bit C++ compiler. If your compiler is 32-bit (`mingw32`) this will not compile.
+https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r3/winlibs-i686-posix-dwarf-gcc-15.2.0-mingw-w64ucrt-13.0.0-r3.zip
+
 
 There is no need to download sdl2 libraries as we have included those in the repo itself.
 
