@@ -152,4 +152,10 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
+<div align="center">
 
+**Built with ❤️ as a DSA Course Project**
+
+*If you found this project useful, consider giving it a ⭐ on GitHub!*
+
+</div>
